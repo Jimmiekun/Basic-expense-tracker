@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#101827">
+<title>Family Expense Tracker</title>
+<style>
+:root{--bg:#0b1220;--panel:#131e30;--panel2:#1a2940;--text:#edf3fb;--muted:#9aabc0;--line:#293950;--accent:#69d6b0;--red:#ff7777;--yellow:#ffd27a}
+*{box-sizing:border-box}
+body{margin:0;background:linear-gradient(145deg,#0b1220,#101c2d);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;padding:22px 14px 40px}
+.wrap{max-width:1050px;margin:auto}
+header{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:22px}
+h1{font-size:clamp(23px,5vw,32px);margin:0;letter-spacing:-.7px}
+.subtitle{color:var(--muted);margin:4px 0 0;font-size:13px}
+.pill{border:1px solid var(--line);border-radius:999px;padding:7px 11px;color:var(--muted);font-size:12px;white-space:nowrap}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.card,.section{background:rgba(19,30,48,.95);border:1px solid var(--line);border-radius:16px;padding:17px}
+.card small{color:var(--muted);display:block;margin-bottom:8px}
+.amount{font-size:clamp(20px,4vw,27px);font-weight:750;letter-spacing:-.5px}
+.card.outstanding .amount{color:var(--yellow)}
+.card.paid .amount{color:var(--accent)}
+.section{margin-top:14px}
+.section-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:13px}
+h2{font-size:17px;margin:0}
+.muted{color:var(--muted);font-size:13px}
+.actions,.toolbar{display:flex;gap:8px;flex-wrap:wrap}
+button,.file-label{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:10px 13px;border-radius:10px;font:600 13px system-ui;cursor:pointer}
+button.primary{background:var(--accent);color:#092018;border-color:var(--accent)}
+button.danger{color:#ffaaaa}
+button:active{transform:scale(.98)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.table-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:650px}
+th,td{text-align:left;padding:13px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}
+td{font-size:14px}
+.item-title{font-weight:650}
+.description{color:var(--muted);font-size:12px;margin-top:3px}
+.price{font-weight:700;white-space:nowrap}
+.status{display:inline-block;border-radius:999px;padding:5px 9px;font-size:11px;font-weight:700}
+.status.unpaid{background:#493a20;color:#ffd27a}
+.status.paid{background:#163e35;color:#7be0bc}
+.empty{text-align:center;color:var(--muted);padding:28px}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+input,select,textarea{width:100%;background:#0c1625;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:11px;font:14px system-ui;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent)}
+textarea{min-height:75px;resize:vertical}
+.full{grid-column:1/-1}
+.form-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.hidden{display:none!important}
+.note{background:#17263a;border:1px solid var(--line);border-radius:12px;padding:12px;color:var(--muted);font-size:12px;margin-top:14px}
+footer{text-align:center;color:var(--muted);font-size:12px;margin-top:20px}
+@media(max-width:620px){body{padding:16px 11px 30px}.grid{grid-template-columns:1fr 1fr}.card:last-child{grid-column:1/-1}.section{padding:14px}.section-head{align-items:flex-start;flex-direction:column}.form-grid{grid-template-columns:1fr}.full{grid-column:auto}header{align-items:flex-start;flex-direction:column}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><h1>Family Expense Tracker</h1><p class="subtitle">A simple record of expenses and payments.</p></div>
+  <div class="pill" id="accessLabel">Viewing mode</div>
+</header>
+
+<div class="grid">
+  <div class="card outstanding"><small>Total outstanding</small><div class="amount" id="outstandingTotal">₦0</div></div>
+  <div class="card paid"><small>Total paid</small><div class="amount" id="paidTotal">₦0</div></div>
+  <div class="card"><small>Total recorded</small><div class="amount" id="grandTotal">₦0</div></div>
+</div>
+
+<section class="section">
+  <div class="section-head">
+    <div><h2>Expense records</h2><div class="muted">Track what is owed and what has been paid.</div></div>
+    <div class="actions">
+      <button id="loginBtn" class="primary" onclick="requestAdmin()">Admin login</button>
+      <button id="logoutBtn" class="hidden" onclick="logout()">Lock editing</button>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Item / description</th><th>Amount</th><th>Status</th><th>Responsible / note</th><th class="admin-col hidden">Actions</th></tr></thead>
+      <tbody id="recordsBody"></tbody>
+    </table>
+  </div>
+  <div id="emptyMessage" class="empty hidden">No expense records yet.</div>
+  <div class="note">Records are saved in this browser on this device. Download a JSON backup before changing devices or clearing browser data.</div>
+</section>
+
+<section class="section hidden" id="editorSection">
+  <div class="section-head"><div><h2 id="formHeading">Add an expense</h2><div class="muted">Only unlocked admin mode can change records.</div></div></div>
+  <form id="expenseForm">
+    <div class="form-grid">
+      <div><label for="itemName">Item / subject *</label><input id="itemName" maxlength="90" required placeholder="e.g. School fees"></div>
+      <div><label for="itemPrice">Price (₦) *</label><input id="itemPrice" type="number" min="0" step="0.01" required placeholder="e.g. 17000"></div>
+      <div><label for="itemStatus">Payment status</label><select id="itemStatus"><option value="unpaid">Unpaid</option><option value="paid">Paid</option></select></div>
+      <div><label for="itemResponsible">Responsible / note</label><input id="itemResponsible" maxlength="100" placeholder="e.g. Not paid by Dad"></div>
+      <div class="full"><label for="itemDescription">Statement / description</label><textarea id="itemDescription" maxlength="500" placeholder="Add details about this expense..."></textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="primary" type="submit" id="saveBtn">Add record</button>
+      <button type="button" onclick="resetForm()">Clear form</button>
+    </div>
+  </form>
+</section>
+
+<section class="section">
+  <div class="section-head"><div><h2>Export & backups</h2><div class="muted">Save a copy of the records or move them to another device.</div></div></div>
+  <div class="toolbar">
+    <button onclick="downloadPDF()">Download PDF</button>
+    <button onclick="downloadTXT()">Download TXT</button>
+    <button onclick="downloadJSON()">Backup JSON</button>
+    <label class="file-label" style="margin:0;cursor:pointer">Import JSON<input type="file" id="importFile" accept=".json,application/json" hidden onchange="importJSON(event)"></label>
+  </div>
+</section>
+<footer>Family Expense Tracker · Stored locally in this browser</footer>
+</div>
+
+<script>
+"use strict";
+const ADMIN_PASSWORD = "NOSAJ444U";
+const STORAGE_KEY = "family-expense-tracker-v1";
+let isAdmin = false;
+let editingId = null;
+
+const starterRecords = [
+  {id:"seed-matric",name:"Matric",amount:17000,status:"unpaid",responsible:"Not paid by Dad",description:"Matriculation payment."},
+  {id:"seed-jamb",name:"JAMB Admission Letter",amount:3000,status:"unpaid",responsible:"Not paid by Dad",description:"JAMB admission letter payment."}
+];
+
+function loadRecords(){
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if(!saved) return starterRecords.map(x=>({...x}));
+    const data = JSON.parse(saved);
+    if(!Array.isArray(data)) throw new Error("Invalid data");
+    return data;
+  } catch(error) {
+    alert("Saved records could not be read. Starter records loaded.");
+    return starterRecords.map(x=>({...x}));
+  }
+}
+let records = loadRecords();
+
+function persist(){
+  try { localStorage.setItem(STORAGE_KEY,JSON.stringify(records)); }
+  catch(error){ alert("Could not save. Your browser storage may be full or unavailable."); }
+}
+function money(value){
+  return new Intl.NumberFormat("en-NG",{style:"currency",currency:"NGN",maximumFractionDigits:2}).format(Number(value)||0);
+}
+function safe(value){
+  return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+}
+function render(){
+  const body=document.getElementById("recordsBody");
+  body.innerHTML="";
+  let unpaid=0,paid=0;
+  records.forEach(record=>{
+    const amount=Number(record.amount)||0;
+    if(record.status==="paid") paid+=amount; else unpaid+=amount;
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td><div class="item-title">${safe(record.name)}</div><div class="description">${safe(record.description||"")}</div></td>
+      <td class="price">${money(amount)}</td>
+      <td><span class="status ${record.status==="paid"?"paid":"unpaid"}">${record.status==="paid"?"PAID":"UNPAID"}</span></td>
+      <td>${safe(record.responsible||"—")}</td>
+      ${isAdmin?`<td><div class="actions"><button onclick="editRecord('${safe(record.id)}')">Edit</button><button class="danger" onclick="deleteRecord('${safe(record.id)}')">Delete</button></div></td>`:""}
+    `;
+    body.appendChild(tr);
+  });
+  document.getElementById("outstandingTotal").textContent=money(unpaid);
+  document.getElementById("paidTotal").textContent=money(paid);
+  document.getElementById("grandTotal").textContent=money(unpaid+paid);
+  document.getElementById("emptyMessage").classList.toggle("hidden",records.length!==0);
+  document.getElementById("editorSection").classList.toggle("hidden",!isAdmin);
+  document.getElementById("loginBtn").classList.toggle("hidden",isAdmin);
+  document.getElementById("logoutBtn").classList.toggle("hidden",!isAdmin);
+  document.getElementById("accessLabel").textContent=isAdmin?"Admin editing unlocked":"Viewing mode";
+  document.querySelectorAll(".admin-col").forEach(el=>el.classList.toggle("hidden",!isAdmin));
+}
+function requestAdmin(){
+  const entered=prompt("Enter admin password to enable editing:");
+  if(entered===null)return;
+  if(entered!==ADMIN_PASSWORD){alert("Failed to edit. Incorrect password.");return;}
+  isAdmin=true;render();
+}
+function logout(){isAdmin=false;resetForm();render();}
+function requireAdmin(){if(!isAdmin){alert("Admin access required.");return false;}return true;}
+function resetForm(){
+  editingId=null;
+  document.getElementById("expenseForm").reset();
+  document.getElementById("formHeading").textContent="Add an expense";
+  document.getElementById("saveBtn").textContent="Add record";
+}
+document.getElementById("expenseForm").addEventListener("submit",event=>{
+  event.preventDefault();if(!requireAdmin())return;
+  const name=document.getElementById("itemName").value.trim();
+  const amount=Number(document.getElementById("itemPrice").value);
+  if(!name||!Number.isFinite(amount)||amount<0){alert("Enter a valid item name and price.");return;}
+  const item={
+    id:editingId||("item-"+Date.now()+"-"+Math.random().toString(36).slice(2,7)),
+    name,amount,
+    status:document.getElementById("itemStatus").value,
+    responsible:document.getElementById("itemResponsible").value.trim(),
+    description:document.getElementById("itemDescription").value.trim()
+  };
+  if(editingId){records=records.map(r=>r.id===editingId?item:r);}
+  else records.push(item);
+  persist();resetForm();render();
+});
+function editRecord(id){
+  if(!requireAdmin())return;
+  const r=records.find(x=>x.id===id);if(!r)return;
+  editingId=id;
+  document.getElementById("itemName").value=r.name;
+  document.getElementById("itemPrice").value=r.amount;
+  document.getElementById("itemStatus").value=r.status;
+  document.getElementById("itemResponsible").value=r.responsible||"";
+  document.getElementById("itemDescription").value=r.description||"";
+  document.getElementById("formHeading").textContent="Edit expense";
+  document.getElementById("saveBtn").textContent="Save changes";
+  document.getElementById("editorSection").scrollIntoView({behavior:"smooth"});
+}
+function deleteRecord(id){
+  if(!requireAdmin())return;
+  const r=records.find(x=>x.id===id);if(!r)return;
+  if(!confirm(`Delete "${r.name}"? This cannot be undone unless you have a backup.`))return;
+  records=records.filter(x=>x.id!==id);persist();render();
+}
+function downloadFile(filename,content,type){
+  const blob=new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+}
+function downloadTXT(){
+  const lines=["FAMILY EXPENSE TRACKER","Generated: "+new Date().toLocaleString("en-NG"),"",
+    ...records.map((r,i)=>`${i+1}. ${r.name}\n   Amount: ${money(r.amount)}\n   Status: ${r.status.toUpperCase()}\n   Responsible / note: ${r.responsible||"—"}\n   Description: ${r.description||"—"}`),
+    "","Outstanding: "+money(records.filter(r=>r.status!=="paid").reduce((s,r)=>s+Number(r.amount||0),0)),
+    "Paid: "+money(records.filter(r=>r.status==="paid").reduce((s,r)=>s+Number(r.amount||0),0))];
+  downloadFile("family-expenses.txt",lines.join("\n"),"text/plain;charset=utf-8");
+}
+function downloadJSON(){downloadFile("family-expenses-backup.json",JSON.stringify(records,null,2),"application/json");}
+function importJSON(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!Array.isArray(data)||!data.every(r=>r&&typeof r.name==="string"&&Number.isFinite(Number(r.amount))&&["paid","unpaid"].includes(r.status)))throw new Error("Invalid format");
+      if(!confirm("Importing will replace the records currently saved in this browser. Continue?"))return;
+      records=data.map((r,i)=>({id:String(r.id||("import-"+Date.now()+"-"+i)),name:r.name,amount:Number(r.amount),status:r.status,responsible:String(r.responsible||""),description:String(r.description||"")}));
+      persist();render();alert("Backup imported.");
+    }catch(e){alert("That file is not a valid expense backup.");}
+    event.target.value="";
+  };
+  reader.readAsText(file);
+}
+function downloadPDF(){
+  const rows=records.map(r=>`<tr><td>${safe(r.name)}</td><td>${money(r.amount)}</td><td>${r.status.toUpperCase()}</td><td>${safe(r.responsible||"—")}</td><td>${safe(r.description||"")}</td></tr>`).join("");
+  const outstanding=records.filter(r=>r.status!=="paid").reduce((s,r)=>s+Number(r.amount||0),0);
+  const paid=records.filter(r=>r.status==="paid").reduce((s,r)=>s+Number(r.amount||0),0);
+  const win=window.open("","_blank");
+  if(!win){alert("Allow pop-ups to create the PDF, then try again.");return;}
+  win.document.write(`<!doctype html><html><head><title>Family expenses</title><style>body{font:12px Arial;padding:25px;color:#172033}h1{font-size:22px}table{border-collapse:collapse;width:100%;margin-top:20px}th,td{border:1px solid #bbb;padding:9px;text-align:left}th{background:#eee}.totals{margin-top:20px;line-height:1.8}@media print{button{display:none}}</style></head><body><h1>Family Expense Tracker</h1><p>Generated: ${new Date().toLocaleString("en-NG")}</p><table><thead><tr><th>Item</th><th>Amount</th><th>Status</th><th>Responsible / note</th><th>Description</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><b>Outstanding:</b> ${money(outstanding)}<br><b>Paid:</b> ${money(paid)}<br><b>Total:</b> ${money(outstanding+paid)}</div><p><button onclick="window.print()">Print / Save as PDF</button></p><script>window.onload=()=>setTimeout(()=>window.print(),300)<\/script></body></html>`);
+  win.document.close();
+}
+render();
+</script>
+</body>
+</html>
